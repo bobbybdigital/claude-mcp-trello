@@ -113,6 +113,20 @@ export class TrelloClient {
     });
   }
 
+  async moveCard(params: {
+    cardId: string;
+    idList: string;
+    pos?: string | number;
+  }): Promise<TrelloCard> {
+    return this.handleRequest(async () => {
+      const response = await this.axiosInstance.put(`/cards/${params.cardId}`, {
+        idList: params.idList,
+        ...(params.pos !== undefined && { pos: params.pos }),
+      });
+      return response.data;
+    });
+  }
+
   async archiveCard(cardId: string): Promise<TrelloCard> {
     return this.handleRequest(async () => {
       const response = await this.axiosInstance.put(`/cards/${cardId}`, {
@@ -166,6 +180,47 @@ export class TrelloClient {
           organization: true,
         },
       });
+      return response.data;
+    });
+  }
+
+  async addComment(cardId: string, text: string): Promise<any> {
+    return this.handleRequest(async () => {
+      const response = await this.axiosInstance.post(`/cards/${cardId}/actions/comments`, {
+        text,
+      });
+      return response.data;
+    });
+  }
+
+  async getComments(cardId: string, limit: number = 10): Promise<any[]> {
+    return this.handleRequest(async () => {
+      const response = await this.axiosInstance.get(`/cards/${cardId}/actions`, {
+        params: { filter: 'commentCard', limit },
+      });
+      return response.data;
+    });
+  }
+
+  async addLabel(cardId: string, labelId: string): Promise<any> {
+    return this.handleRequest(async () => {
+      const response = await this.axiosInstance.post(`/cards/${cardId}/idLabels`, {
+        value: labelId,
+      });
+      return response.data;
+    });
+  }
+
+  async removeLabel(cardId: string, labelId: string): Promise<any> {
+    return this.handleRequest(async () => {
+      const response = await this.axiosInstance.delete(`/cards/${cardId}/idLabels/${labelId}`);
+      return response.data;
+    });
+  }
+
+  async getBoardLabels(boardId: string): Promise<any[]> {
+    return this.handleRequest(async () => {
+      const response = await this.axiosInstance.get(`/boards/${boardId}/labels`);
       return response.data;
     });
   }
