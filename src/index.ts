@@ -166,6 +166,34 @@ const trelloUpdateCardTool: Tool = {
   },
 };
 
+interface MoveCardArgs {
+  cardId: string;
+  idList: string;
+  pos?: string | number;
+}
+
+const trelloMoveCardTool: Tool = {
+  name: "trello_move_card",
+  description: "Moves a card to a different list. Use this to change a card's workflow status (e.g., from 'To Do' to 'In Progress').",
+  inputSchema: {
+    type: "object",
+    properties: {
+      cardId: {
+        type: "string",
+        description: "The ID of the card to move",
+      },
+      idList: {
+        type: "string",
+        description: "The ID of the destination list",
+      },
+      pos: {
+        description: 'Position in the destination list: "top", "bottom", or a specific number',
+      },
+    },
+    required: ["cardId", "idList"],
+  },
+};
+
 interface ArchiveCardArgs {
   cardId: string;
 }
@@ -258,6 +286,129 @@ const trelloSearchAllBoardsTool: Tool = {
       },
     },
     required: ["query"],
+  },
+};
+
+// --------------------------------------------------
+// Comment Tools
+// --------------------------------------------------
+
+interface AddCommentArgs {
+  cardId: string;
+  text: string;
+}
+
+const trelloAddCommentTool: Tool = {
+  name: "trello_add_comment",
+  description: "Adds a comment to a Trello card.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      cardId: {
+        type: "string",
+        description: "The ID of the card to comment on",
+      },
+      text: {
+        type: "string",
+        description: "The comment text (supports Markdown)",
+      },
+    },
+    required: ["cardId", "text"],
+  },
+};
+
+interface GetCommentsArgs {
+  cardId: string;
+  limit?: number;
+}
+
+const trelloGetCommentsTool: Tool = {
+  name: "trello_get_comments",
+  description: "Retrieves comments from a Trello card.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      cardId: {
+        type: "string",
+        description: "The ID of the card to get comments from",
+      },
+      limit: {
+        type: "number",
+        description: "Maximum number of comments to retrieve (default: 10)",
+      },
+    },
+    required: ["cardId"],
+  },
+};
+
+// --------------------------------------------------
+// Label Tools
+// --------------------------------------------------
+
+interface AddLabelArgs {
+  cardId: string;
+  labelId: string;
+}
+
+const trelloAddLabelTool: Tool = {
+  name: "trello_add_label",
+  description: "Adds a label to a Trello card by label ID.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      cardId: {
+        type: "string",
+        description: "The ID of the card",
+      },
+      labelId: {
+        type: "string",
+        description: "The ID of the label to add",
+      },
+    },
+    required: ["cardId", "labelId"],
+  },
+};
+
+interface RemoveLabelArgs {
+  cardId: string;
+  labelId: string;
+}
+
+const trelloRemoveLabelTool: Tool = {
+  name: "trello_remove_label",
+  description: "Removes a label from a Trello card.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      cardId: {
+        type: "string",
+        description: "The ID of the card",
+      },
+      labelId: {
+        type: "string",
+        description: "The ID of the label to remove",
+      },
+    },
+    required: ["cardId", "labelId"],
+  },
+};
+
+interface GetBoardLabelsArgs {
+  boardId: string;
+}
+
+const trelloGetBoardLabelsTool: Tool = {
+  name: "trello_get_board_labels",
+  description: "Retrieves all labels defined on a Trello board.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      boardId: {
+        type: "string",
+        description: "The ID of the board",
+      },
+    },
+    required: ["boardId"],
   },
 };
 
@@ -449,6 +600,24 @@ async function main() {
         }
 
         // --------------------------------------------------
+        // Move card to a different list
+        // --------------------------------------------------
+        case "trello_move_card": {
+          const args = request.params.arguments as unknown as MoveCardArgs;
+          if (!args.cardId || !args.idList) {
+            throw new Error("Missing required arguments: cardId, idList");
+          }
+          const response = await trelloClient.moveCard({
+            cardId: args.cardId,
+            idList: args.idList,
+            pos: args.pos,
+          });
+          return {
+            content: [{ type: "text", text: JSON.stringify(response) }],
+          };
+        }
+
+        // --------------------------------------------------
         // Archive card
         // --------------------------------------------------
         case "trello_archive_card": {
@@ -504,6 +673,77 @@ async function main() {
           const args = request.params.arguments as unknown as TrelloSearchAllBoardsArgs;
           const limit = args.limit ?? 10;
           const response = await trelloClient.searchAllBoards(args.query, limit);
+          return {
+            content: [{ type: "text", text: JSON.stringify(response) }],
+          };
+        }
+
+        // --------------------------------------------------
+        // Add comment to a card
+        // --------------------------------------------------
+        case "trello_add_comment": {
+          const args = request.params.arguments as unknown as AddCommentArgs;
+          if (!args.cardId || !args.text) {
+            throw new Error("Missing required arguments: cardId, text");
+          }
+          const response = await trelloClient.addComment(args.cardId, args.text);
+          return {
+            content: [{ type: "text", text: JSON.stringify(response) }],
+          };
+        }
+
+        // --------------------------------------------------
+        // Get comments from a card
+        // --------------------------------------------------
+        case "trello_get_comments": {
+          const args = request.params.arguments as unknown as GetCommentsArgs;
+          if (!args.cardId) {
+            throw new Error("Missing required argument: cardId");
+          }
+          const limit = args.limit ?? 10;
+          const response = await trelloClient.getComments(args.cardId, limit);
+          return {
+            content: [{ type: "text", text: JSON.stringify(response) }],
+          };
+        }
+
+        // --------------------------------------------------
+        // Add label to a card
+        // --------------------------------------------------
+        case "trello_add_label": {
+          const args = request.params.arguments as unknown as AddLabelArgs;
+          if (!args.cardId || !args.labelId) {
+            throw new Error("Missing required arguments: cardId, labelId");
+          }
+          const response = await trelloClient.addLabel(args.cardId, args.labelId);
+          return {
+            content: [{ type: "text", text: JSON.stringify(response) }],
+          };
+        }
+
+        // --------------------------------------------------
+        // Remove label from a card
+        // --------------------------------------------------
+        case "trello_remove_label": {
+          const args = request.params.arguments as unknown as RemoveLabelArgs;
+          if (!args.cardId || !args.labelId) {
+            throw new Error("Missing required arguments: cardId, labelId");
+          }
+          const response = await trelloClient.removeLabel(args.cardId, args.labelId);
+          return {
+            content: [{ type: "text", text: JSON.stringify(response) }],
+          };
+        }
+
+        // --------------------------------------------------
+        // Get all labels on a board
+        // --------------------------------------------------
+        case "trello_get_board_labels": {
+          const args = request.params.arguments as unknown as GetBoardLabelsArgs;
+          if (!args.boardId) {
+            throw new Error("Missing required argument: boardId");
+          }
+          const response = await trelloClient.getBoardLabels(args.boardId);
           return {
             content: [{ type: "text", text: JSON.stringify(response) }],
           };
@@ -570,11 +810,17 @@ async function main() {
         trelloGetRecentActivityTool,
         trelloAddCardTool,
         trelloUpdateCardTool,
+        trelloMoveCardTool,
         trelloArchiveCardTool,
         trelloAddListTool,
         trelloArchiveListTool,
         trelloGetMyCardsTool,
         trelloSearchAllBoardsTool,
+        trelloAddCommentTool,
+        trelloGetCommentsTool,
+        trelloAddLabelTool,
+        trelloRemoveLabelTool,
+        trelloGetBoardLabelsTool,
         trelloGetCardAttachmentsTool,
         trelloDownloadAttachmentTool,
       ],
