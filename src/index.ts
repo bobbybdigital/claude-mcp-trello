@@ -416,6 +416,40 @@ const trelloGetBoardLabelsTool: Tool = {
 // Attachment Tools
 // --------------------------------------------------
 
+interface AddAttachmentArgs {
+  cardId: string;
+  content: string;
+  filename: string;
+  mimeType?: string;
+}
+
+const trelloAddAttachmentTool: Tool = {
+  name: "trello_add_attachment",
+  description: "Uploads a text file as an attachment to a Trello card. Pass the file content as a string and specify the filename.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      cardId: {
+        type: "string",
+        description: "The ID of the card to attach the file to",
+      },
+      content: {
+        type: "string",
+        description: "The text content of the file to upload",
+      },
+      filename: {
+        type: "string",
+        description: "The filename for the attachment (e.g., 'script.txt')",
+      },
+      mimeType: {
+        type: "string",
+        description: "MIME type of the file (default: text/plain)",
+      },
+    },
+    required: ["cardId", "content", "filename"],
+  },
+};
+
 interface GetCardAttachmentsArgs {
   cardId: string;
 }
@@ -750,6 +784,25 @@ async function main() {
         }
 
         // --------------------------------------------------
+        // Upload attachment to a card
+        // --------------------------------------------------
+        case "trello_add_attachment": {
+          const args = request.params.arguments as unknown as AddAttachmentArgs;
+          if (!args.cardId || !args.content || !args.filename) {
+            throw new Error("Missing required arguments: cardId, content, filename");
+          }
+          const response = await trelloClient.addAttachment(
+            args.cardId,
+            args.content,
+            args.filename,
+            args.mimeType || 'text/plain'
+          );
+          return {
+            content: [{ type: "text", text: JSON.stringify(response) }],
+          };
+        }
+
+        // --------------------------------------------------
         // Get all attachments from a card
         // --------------------------------------------------
         case "trello_get_card_attachments": {
@@ -816,6 +869,7 @@ async function main() {
         trelloArchiveListTool,
         trelloGetMyCardsTool,
         trelloSearchAllBoardsTool,
+        trelloAddAttachmentTool,
         trelloAddCommentTool,
         trelloGetCommentsTool,
         trelloAddLabelTool,

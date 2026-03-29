@@ -228,6 +228,28 @@ export class TrelloClient {
     });
   }
 
+  async addAttachment(cardId: string, content: string, filename: string, mimeType: string = 'text/plain'): Promise<any> {
+    return this.handleRequest(async () => {
+      const blob = new Blob([content], { type: mimeType });
+      const formData = new FormData();
+      formData.append('file', blob, filename);
+      formData.append('name', filename);
+      formData.append('mimeType', mimeType);
+
+      const response = await axios.post(
+        `https://api.trello.com/1/cards/${cardId}/attachments`,
+        formData,
+        {
+          params: {
+            key: this.config.apiKey,
+            token: this.config.token,
+          },
+        }
+      );
+      return response.data;
+    });
+  }
+
   /**
    * Retrieves all attachments for a specific card.
    *
