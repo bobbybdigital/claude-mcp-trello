@@ -408,6 +408,34 @@ const trelloGetBoardLabelsTool: Tool = {
 };
 
 // --------------------------------------------------
+// Custom Field Tools
+// --------------------------------------------------
+
+interface GetCardCustomFieldsArgs {
+  cardId: string;
+  boardId: string;
+}
+
+const trelloGetCardCustomFieldsTool: Tool = {
+  name: "trello_get_card_custom_fields",
+  description: "Retrieves all custom field values for a card, resolved to readable names and values. For dropdown fields, returns the selected option text instead of the raw ID.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      cardId: {
+        type: "string",
+        description: "The ID of the card",
+      },
+      boardId: {
+        type: "string",
+        description: "The ID of the board (needed to resolve field definitions)",
+      },
+    },
+    required: ["cardId", "boardId"],
+  },
+};
+
+// --------------------------------------------------
 // Attachment Tools
 // --------------------------------------------------
 
@@ -442,6 +470,30 @@ const trelloAddAttachmentTool: Tool = {
       },
     },
     required: ["cardId", "content", "filename"],
+  },
+};
+
+interface DeleteAttachmentArgs {
+  cardId: string;
+  attachmentId: string;
+}
+
+const trelloDeleteAttachmentTool: Tool = {
+  name: "trello_delete_attachment",
+  description: "Deletes an attachment from a Trello card.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      cardId: {
+        type: "string",
+        description: "The ID of the card containing the attachment",
+      },
+      attachmentId: {
+        type: "string",
+        description: "The ID of the attachment to delete (obtained from trello_get_card_attachments)",
+      },
+    },
+    required: ["cardId", "attachmentId"],
   },
 };
 
@@ -778,6 +830,20 @@ async function main() {
         }
 
         // --------------------------------------------------
+        // Get custom field values for a card
+        // --------------------------------------------------
+        case "trello_get_card_custom_fields": {
+          const args = request.params.arguments as unknown as GetCardCustomFieldsArgs;
+          if (!args.cardId || !args.boardId) {
+            throw new Error("Missing required arguments: cardId, boardId");
+          }
+          const response = await trelloClient.getCardCustomFields(args.cardId, args.boardId);
+          return {
+            content: [{ type: "text", text: JSON.stringify(response) }],
+          };
+        }
+
+        // --------------------------------------------------
         // Upload attachment to a card
         // --------------------------------------------------
         case "trello_add_attachment": {
@@ -791,6 +857,20 @@ async function main() {
             args.filename,
             args.mimeType || 'text/plain'
           );
+          return {
+            content: [{ type: "text", text: JSON.stringify(response) }],
+          };
+        }
+
+        // --------------------------------------------------
+        // Delete an attachment from a card
+        // --------------------------------------------------
+        case "trello_delete_attachment": {
+          const args = request.params.arguments as unknown as DeleteAttachmentArgs;
+          if (!args.cardId || !args.attachmentId) {
+            throw new Error("Missing required arguments: cardId, attachmentId");
+          }
+          const response = await trelloClient.deleteAttachment(args.cardId, args.attachmentId);
           return {
             content: [{ type: "text", text: JSON.stringify(response) }],
           };
@@ -863,12 +943,14 @@ async function main() {
         trelloArchiveListTool,
         trelloGetMyCardsTool,
         trelloSearchAllBoardsTool,
+        trelloGetCardCustomFieldsTool,
         trelloAddAttachmentTool,
         trelloAddCommentTool,
         trelloGetCommentsTool,
         trelloAddLabelTool,
         trelloRemoveLabelTool,
         trelloGetBoardLabelsTool,
+        trelloDeleteAttachmentTool,
         trelloGetCardAttachmentsTool,
         trelloDownloadAttachmentTool,
       ],
