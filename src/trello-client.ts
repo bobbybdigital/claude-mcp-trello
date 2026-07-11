@@ -228,21 +228,66 @@ export class TrelloClient {
     });
   }
 
+  async getCardCustomFields(cardId: string, boardId: string): Promise<any[]> {
+    return this.handleRequest(async () => {
+      // Get the card's custom field values
+      const [itemsRes, defsRes] = await Promise.all([
+        this.axiosInstance.get(`/cards/${cardId}/customFieldItems`),
+        this.axiosInstance.get(`/boards/${boardId}/customFields`),
+      ]);
+
+      const items = itemsRes.data;
+      const defs = defsRes.data;
+
+      // Resolve each custom field item to a readable name + value
+      return items.map((item: any) => {
+        const def = defs.find((d: any) => d.id === item.idCustomField);
+        if (!def) return null;
+
+        let value: any = null;
+        if (item.value) {
+          // Direct value (text, number, checkbox)
+          value = item.value.text || item.value.number || item.value.checked || item.value;
+        } else if (item.idValue && def.options) {
+          // Dropdown option — resolve the ID to the option text
+          const option = def.options.find((o: any) => o._id === item.idValue || o.id === item.idValue);
+          value = option?.value?.text || item.idValue;
+        }
+
+        return {
+          name: def.name,
+          type: def.type,
+          value,
+        };
+      }).filter(Boolean);
+    });
+  }
+
   async addAttachment(cardId: string, content: string, filename: string, mimeType: string = 'text/plain'): Promise<any> {
     return this.handleRequest(async () => {
-      const blob = new Blob([content], { type: mimeType });
-      const formData = new FormData();
-      formData.append('file', blob, filename);
-      formData.append('name', filename);
-      formData.append('mimeType', mimeType);
+      const boundary = '----TrelloMCP' + Date.now();
+      const buffer = Buffer.from(content, 'utf-8');
+
+      const body =
+        `--${boundary}\r\n` +
+        `Content-Disposition: form-data; name="file"; filename="${filename}"\r\n` +
+        `Content-Type: ${mimeType}\r\n\r\n` +
+        content + '\r\n' +
+        `--${boundary}\r\n` +
+        `Content-Disposition: form-data; name="name"\r\n\r\n` +
+        filename + '\r\n' +
+        `--${boundary}--\r\n`;
 
       const response = await axios.post(
         `https://api.trello.com/1/cards/${cardId}/attachments`,
-        formData,
+        body,
         {
           params: {
             key: this.config.apiKey,
             token: this.config.token,
+          },
+          headers: {
+            'Content-Type': `multipart/form-data; boundary=${boundary}`,
           },
         }
       );
@@ -260,6 +305,13 @@ export class TrelloClient {
    * const attachments = await client.getCardAttachments('abc123');
    * console.log(attachments.map(a => a.name));
    */
+  async deleteAttachment(cardId: string, attachmentId: string): Promise<any> {
+    return this.handleRequest(async () => {
+      const response = await this.axiosInstance.delete(`/cards/${cardId}/attachments/${attachmentId}`);
+      return response.data;
+    });
+  }
+
   async getCardAttachments(cardId: string): Promise<TrelloAttachment[]> {
     return this.handleRequest(async () => {
       const response = await this.axiosInstance.get(`/cards/${cardId}/attachments`);
