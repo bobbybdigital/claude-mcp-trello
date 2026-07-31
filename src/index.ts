@@ -251,6 +251,53 @@ const trelloArchiveListTool: Tool = {
   },
 };
 
+interface ListBoardsArgs {}
+
+const trelloListBoardsTool: Tool = {
+  name: "trello_list_boards",
+  description:
+    "Lists all open boards for the authenticated account (id, name, url, workspace). Use this to find a template board's ID by name before copying it.",
+  inputSchema: {
+    type: "object",
+    properties: {},
+  },
+};
+
+interface CopyBoardArgs {
+  name: string;
+  sourceBoardId: string;
+  keepCards?: boolean;
+  idOrganization?: string;
+}
+
+const trelloCopyBoardTool: Tool = {
+  name: "trello_copy_board",
+  description:
+    "Duplicates an existing board (lists, labels, custom fields, and by default its cards) into a new board. Mirrors the Trello UI 'copy board'. Use to spin up a new channel board from a template.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      name: {
+        type: "string",
+        description: "Name of the new board (e.g. '[DZ] Danger Zones')",
+      },
+      sourceBoardId: {
+        type: "string",
+        description: "The template board ID to copy from",
+      },
+      keepCards: {
+        type: "boolean",
+        description: "Include the template's cards in the copy (default: true)",
+      },
+      idOrganization: {
+        type: "string",
+        description: "Optional workspace/organization ID to create the new board in",
+      },
+    },
+    required: ["name", "sourceBoardId"],
+  },
+};
+
 interface GetMyCardsArgs {}
 
 const trelloGetMyCardsTool: Tool = {
@@ -749,6 +796,35 @@ async function main() {
           };
         }
 
+        // --------------------------------------------------
+        // List all boards (resolve a template board by name)
+        // --------------------------------------------------
+        case "trello_list_boards": {
+          const response = await trelloClient.listBoards();
+          return {
+            content: [{ type: "text", text: JSON.stringify(response) }],
+          };
+        }
+
+        // --------------------------------------------------
+        // Copy a board from a template (lists, labels, fields, cards)
+        // --------------------------------------------------
+        case "trello_copy_board": {
+          const args = request.params.arguments as unknown as CopyBoardArgs;
+          if (!args.name || !args.sourceBoardId) {
+            throw new Error("Missing required arguments: name, sourceBoardId");
+          }
+          const response = await trelloClient.copyBoard({
+            name: args.name,
+            sourceBoardId: args.sourceBoardId,
+            keepCards: args.keepCards,
+            idOrganization: args.idOrganization,
+          });
+          return {
+            content: [{ type: "text", text: JSON.stringify(response) }],
+          };
+        }
+
         case "trello_search_all_boards": {
           const args = request.params.arguments as unknown as TrelloSearchAllBoardsArgs;
           const limit = args.limit ?? 10;
@@ -942,6 +1018,8 @@ async function main() {
         trelloAddListTool,
         trelloArchiveListTool,
         trelloGetMyCardsTool,
+        trelloListBoardsTool,
+        trelloCopyBoardTool,
         trelloSearchAllBoardsTool,
         trelloGetCardCustomFieldsTool,
         trelloAddAttachmentTool,

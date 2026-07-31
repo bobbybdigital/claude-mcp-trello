@@ -169,6 +169,50 @@ export class TrelloClient {
     });
   }
 
+  /**
+   * Lists all open boards for the authenticated member. Useful for resolving a template
+   * board by name before copying it.
+   *
+   * @returns Promise resolving to an array of { id, name, url, idOrganization, closed }
+   */
+  async listBoards(): Promise<any[]> {
+    return this.handleRequest(async () => {
+      const response = await this.axiosInstance.get('/members/me/boards', {
+        params: { fields: 'name,url,idOrganization,closed', filter: 'open' },
+      });
+      return response.data;
+    });
+  }
+
+  /**
+   * Duplicates an existing board (lists, labels, custom fields, and — by default — cards)
+   * into a brand-new board. This is the "copy board" the Trello UI exposes, via the REST
+   * `idBoardSource` parameter. Used to spin up a new channel board from a template.
+   *
+   * @param params.name - Name of the new board (e.g. "[DZ] Danger Zones")
+   * @param params.sourceBoardId - The template board to copy from
+   * @param params.keepCards - Include the template's cards in the copy (default: true)
+   * @param params.idOrganization - Optional workspace to create the new board in
+   * @returns Promise resolving to the created board object
+   */
+  async copyBoard(params: {
+    name: string;
+    sourceBoardId: string;
+    keepCards?: boolean;
+    idOrganization?: string;
+  }): Promise<any> {
+    return this.handleRequest(async () => {
+      const response = await this.axiosInstance.post('/boards', {
+        name: params.name,
+        idBoardSource: params.sourceBoardId,
+        keepFromSource: params.keepCards === false ? 'none' : 'cards',
+        prefs_permissionLevel: 'private',
+        ...(params.idOrganization ? { idOrganization: params.idOrganization } : {}),
+      });
+      return response.data;
+    });
+  }
+
   async searchAllBoards(query: string, limit: number = 10): Promise<any> {
     return this.handleRequest(async () => {
       const response = await this.axiosInstance.get('/search', {
